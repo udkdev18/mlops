@@ -1,0 +1,52 @@
+#p5
+
+%pip install -q scikit-learn prometheus-client
+
+import logging, time
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from prometheus_client import start_http_server, Gauge
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("mlops.log")],
+    force=True
+)
+
+# Load data and train model
+X, y = load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+logging.info("Training started")
+model = LinearRegression().fit(X_train, y_train)
+logging.info("Training completed")
+
+# Evaluate model
+mse = mean_squared_error(y_test, model.predict(X_test))
+start = time.time()
+model.predict(X_test)
+latency = time.time() - start
+
+logging.info(f"MSE: {mse:.2f}")
+logging.info(f"Prediction latency: {latency:.6f} seconds")
+
+# Check performance
+if mse > 3500:
+    logging.warning("ALERT: Model performance degraded!")
+else:
+    logging.info("Model performance is acceptable")
+
+# Expose metrics to Prometheus
+mse_gauge = Gauge("model_mse", "Model Mean Squared Error")
+latency_gauge = Gauge("model_prediction_latency_seconds", "Prediction latency")
+mse_gauge.set(mse)
+latency_gauge.set(latency)
+
+start_http_server(8000)
+print("Metrics: http://127.0.0.1:8000/metrics")
