@@ -1,5 +1,4 @@
 #p3
-#p3
 %pip install -q scikit-learn joblib pytest
 
 from sklearn.datasets import load_diabetes
