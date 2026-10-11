@@ -1,0 +1,66 @@
+#p3
+#p3
+%pip install -q scikit-learn joblib pytest
+
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+import joblib, os
+
+# Train and save model
+X, y = load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+model = LinearRegression().fit(X_train, y_train)
+joblib.dump(model, "diabetes_model.joblib")
+print("Model trained and saved!")
+
+# Create unit tests
+with open("test_model.py", "w") as f:
+    f.write("""
+import joblib
+import numpy as np
+
+def test_prediction():
+    model = joblib.load("diabetes_model.joblib")
+    assert model.predict(np.zeros((1, 10))).shape == (1,)
+
+def test_output_shape():
+    model = joblib.load("diabetes_model.joblib")
+    assert model.predict(np.zeros((5, 10))).shape == (5,)
+""")
+
+# Run tests
+!pytest test_model.py -v
+
+# Create GitHub Actions CI/CD workflow
+os.makedirs(".github/workflows", exist_ok=True)
+
+with open(".github/workflows/ci.yml", "w") as f:
+    f.write("""
+name: MLOps CI/CD
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install scikit-learn joblib pytest
+      - run: python train.py
+      - run: pytest test_model.py -v
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Deploying model to cloud..."
+""")
+
+print("GitHub Actions workflow created!")
